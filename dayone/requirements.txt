@@ -1,0 +1,17 @@
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9
+cryptography>=42
+# Encrypted SQLite.  Both packages provide the same module, `sqlcipher3`.  The first has Linux wheels
+# only and is the one the project was developed and tested with; the second covers macOS and Windows
+# (it passes the test suite on Linux; it has not been run on macOS or Windows by the team).
+sqlcipher3-binary>=0.5; sys_platform == "linux"
+sqlcipher3-wheels>=0.5; sys_platform != "linux"
+# image-quality check on the device (app/quality.py), and the evaluation tooling
+pillow>=10
+numpy>=1.26
+# evaluation tooling only
+pymupdf>=1.24
+# tests
+pytest>=8
+httpx>=0.27

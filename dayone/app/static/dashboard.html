@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DayOne - anonymised dashboard (prototype)</title>
+<style>
+  :root { --green:#075e54; --green2:#128c7e; --ink:#111b21; --muted:#667781; --line:#d1d7db; --bar:#128c7e; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.45 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color:var(--ink); background:#eef0ed; }
+  header { background:var(--green); color:#fff; padding:14px 20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; font-weight:600; }
+  header .sub { font-size:13px; opacity:.85; flex:1 1 260px; }
+  .lang { display:flex; border:1px solid rgba(255,255,255,.5); border-radius:14px; overflow:hidden; }
+  .lang button { background:transparent; color:#fff; border:0; padding:4px 11px; font:inherit; font-size:12px; cursor:pointer; }
+  .lang button.on { background:#fff; color:var(--green); font-weight:600; }
+  main { max-width:1080px; margin:0 auto; padding:18px 16px 40px; }
+  .totals { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:14px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px; min-width:0; }
+  .big { font-size:30px; font-weight:650; line-height:1.1; }
+  .cap { color:var(--muted); font-size:13px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:12px; }
+  h2 { font-size:15px; margin:0 0 2px; }
+  .row { display:grid; grid-template-columns:92px minmax(0, 1fr) 52px; align-items:center; gap:8px; margin-top:7px; font-size:13px; }
+  .row .lab { color:#3b4a54; white-space:nowrap; }
+  .track { background:#edf1f0; border-radius:4px; height:16px; overflow:hidden; }
+  .fill { height:100%; background:var(--bar); border-radius:4px; min-width:0; }
+  /* a small group: the count is hidden, the bar says so instead of showing a height */
+  .fill.hidden { width:100% !important; background:repeating-linear-gradient(135deg, #c9d3d1 0 5px, #edf1f0 5px 10px); }
+  .row .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .note { color:var(--muted); font-size:12.5px; margin-top:16px; }
+  .empty { color:var(--muted); font-size:13px; margin-top:8px; }
+  #err { color:#b00020; margin:10px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1 data-t="title"></h1>
+  <div class="sub" data-t="sub"></div>
+  <div class="lang"><button id="l_en" onclick="setLang('en')">EN</button><button id="l_fr" onclick="setLang('fr')">FR</button></div>
+</header>
+<main>
+  <div id="err"></div>
+  <div class="totals" id="totals"></div>
+  <div class="grid" id="charts"></div>
+  <p class="note" id="note"></p>
+</main>
+<script>
+const TXT = {
+  en: { title: 'Anonymised dashboard', sub: 'Synchronised registries on the simulated server. Synthetic data only.',
+        registries: 'registries synchronised', patients: 'patient profiles',
+        bp_systolic: 'Blood pressure - systolic', bp_diastolic: 'Blood pressure - diastolic',
+        temp_mother: 'Temperature - mothers (postpartum)', temp_newborn: 'Temperature - newborns (postpartum)',
+        readings: 'readings recorded', hiv: 'HIV serology', syphilis: 'Syphilis (TPHA/VDRL)',
+        hbs_antigen: 'Hepatitis B surface antigen (Ag HBs)', per_registry: 'registries, by result written on the form',
+        negative: 'negative', positive: 'positive', other: 'other wording', none: 'no result', hidden: 'hidden',
+        nothing: 'No value recorded yet.', error: 'The data could not be loaded.',
+        note: n => `Counts only: no individual record, code, date or facility is shown. A group of fewer than ${n} is displayed as "< ${n}" so that nobody can be singled out; when only one group is that small, a second one is hidden too, so that it cannot be worked out from the total. Ranges are plain numeric ranges, not an assessment: this page gives no clinical advice. The form has no hepatitis C field; it records the hepatitis B surface antigen, counted here under its own name.` },
+  fr: { title: 'Tableau de bord anonymisé', sub: 'Registres synchronisés sur le serveur simulé. Données synthétiques uniquement.',
+        registries: 'registres synchronisés', patients: 'profils de patientes',
+        bp_systolic: 'Tension artérielle - systolique', bp_diastolic: 'Tension artérielle - diastolique',
+        temp_mother: 'Température - mères (post-partum)', temp_newborn: 'Température - nouveau-nés (post-partum)',
+        readings: 'mesures enregistrées', hiv: 'Sérologie VIH', syphilis: 'Syphilis (TPHA/VDRL)',
+        hbs_antigen: 'Antigène HBs (Ag HBs)', per_registry: 'registres, selon le résultat écrit sur la fiche',
+        negative: 'négatif', positive: 'positif', other: 'autre libellé', none: 'pas de résultat', hidden: 'masqué',
+        nothing: 'Aucune valeur enregistrée pour l\'instant.', error: 'Les données n\'ont pas pu être chargées.',
+        note: n => `Des effectifs uniquement : aucun registre individuel, code, date ou établissement n'est affiché. Un groupe de moins de ${n} est affiché « < ${n} » afin que personne ne puisse être identifié ; lorsqu'un seul groupe est aussi petit, un second est masqué également, pour qu'on ne puisse pas le déduire du total. Les tranches sont de simples intervalles numériques, pas une évaluation : cette page ne donne aucun avis clinique. La fiche n'a pas de champ hépatite C ; elle enregistre l'antigène HBs, compté ici sous son vrai nom.` },
+};
+let lang = new URLSearchParams(location.search).get('lang') || localStorage.getItem('dayone_lang') || 'en';
+if (!TXT[lang]) lang = 'en';
+let data = null;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function rows(cells, label) {
+  const max = Math.max(1, ...cells.map(c => c.n || 0));
+  return cells.map(c => `<div class="row"><span class="lab">${esc(label(c))}</span>` +
+    `<div class="track"><div class="fill${c.suppressed ? ' hidden' : ''}" style="width:${c.suppressed ? 100 : 100 * c.n / max}%"></div></div>` +
+    `<span class="num">${esc(c.secondary ? TXT[lang].hidden : c.shown)}</span></div>`).join('');
+}
+function draw() {
+  const T = TXT[lang];
+  document.documentElement.lang = lang;
+  document.title = 'DayOne - ' + T.title;
+  document.querySelectorAll('[data-t]').forEach(e => { e.textContent = T[e.dataset.t]; });
+  for (const l of ['en', 'fr']) document.getElementById('l_' + l).className = l === lang ? 'on' : '';
+  if (!data) return;
+  document.getElementById('totals').innerHTML = ['registries', 'patients'].map(k =>
+    `<div class="card"><div class="big">${esc(data[k].shown)}</div><div class="cap">${T[k]}</div></div>`).join('');
+  const charts = data.charts.map(c => `<div class="card"><h2>${T[c.id]}</h2>` +
+    `<div class="cap">${esc(c.total.shown)} ${T.readings} (${esc(c.unit)})</div>` +
+    (c.total.n === 0 ? `<div class="empty">${T.nothing}</div>` : rows(c.bins, b => b.label)) + '</div>');
+  const tests = data.tests.map(t => `<div class="card"><h2>${T[t.id]}</h2><div class="cap">${T.per_registry}</div>` +
+    rows(t.categories, c => T[c.id]) + '</div>');
+  document.getElementById('charts').innerHTML = charts.concat(tests).join('');
+  document.getElementById('note').textContent = T.note(data.min_cell);
+}
+function setLang(l) { lang = l; try { localStorage.setItem('dayone_lang', l); } catch (e) {} draw(); }
+async function load() {
+  try {
+    const r = await fetch('/dashboard/data');
+    if (!r.ok) throw new Error(r.status);
+    data = await r.json(); document.getElementById('err').textContent = '';
+  } catch (e) { document.getElementById('err').textContent = TXT[lang].error; }
+  draw();
+}
+draw(); load(); setInterval(load, 5000);
+</script>
+</body>
+</html>

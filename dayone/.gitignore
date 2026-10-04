@@ -1,0 +1,7 @@
+work/
+device_data/
+server_data/
+config/threshold.json
+__pycache__/
+.pytest_cache/
+data/
